@@ -28,14 +28,16 @@
             background: rgba(255,255,255,0.2); padding: 4px 10px;
             border-radius: 12px; font-weight: 600; min-width: 45px; text-align: center;
         }
-        .theme-btn {
+        .theme-btn, .clear-btn {
             width: 36px; height: 36px; border: none; border-radius: 50%;
             background: rgba(255,255,255,0.2); color: white; cursor: pointer;
             display: flex; align-items: center; justify-content: center; font-size: 16px;
+            margin-left: 4px;
         }
+        .clear-btn:hover { background: rgba(255,0,0,0.3); }
         .chat-area {
             flex: 1; overflow-y: auto; padding: 8px 4px;
-            background: #ece5dd;
+            background: #ece5dd; scroll-behavior: smooth;
         }
         body.dark .chat-area { background: var(--bg-chat); }
         .chat-area::-webkit-scrollbar { width: 0; }
@@ -59,21 +61,18 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
         .message-header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
-        .username { 
-            font-weight: 600; font-size: 14px; color: #075e54;
-        }
+        .username { font-weight: 600; font-size: 14px; color: #075e54; }
         body.dark .username { color: #66d4ff; }
         .timestamp { font-size: 12px; color: #667781; }
         body.dark .timestamp { color: #7a8c99; }
         .message-text { font-size: 15px; line-height: 1.4; word-break: break-word; }
+        .message-image { max-width: 100%; border-radius: 12px; margin-top: 8px; max-height: 300px; }
         .input-area {
             background: #f0f0f0; padding: 8px 16px; display: flex; flex-direction: column; gap: 8px;
             box-shadow: 0 -1px 4px rgba(0,0,0,0.1);
         }
         body.dark .input-area { background: var(--bg-input); }
-        .input-row {
-            display: flex; align-items: center; gap: 8px;
-        }
+        .input-row { display: flex; align-items: center; gap: 8px; }
         .attach-btn {
             width: 44px; height: 44px; border: none; border-radius: 50%;
             background: rgba(255,255,255,0.8); color: #666; cursor: pointer;
@@ -113,12 +112,13 @@
 </head>
 <body class="light">
     <div class="container">
-        <div class="header" id="header">
+        <div class="header">
             <div class="logo">💬 Chat Anonim Pro</div>
             <div class="status">
                 <div id="status">Menghubungkan...</div>
                 <div class="user-count" id="userCount">0</div>
                 <button id="themeToggle" class="theme-btn" title="Toggle Theme">🌙</button>
+                <button id="clearChatBtn" class="clear-btn" title="Hapus Chat Saya">🗑️</button>
             </div>
         </div>
         
@@ -140,6 +140,7 @@
     <script>
         const socket = io({ path: '/socket.io/', transports: ['websocket', 'polling'] });
         let username = 'Anon' + Math.floor(Math.random() * 1000);
+        let chatDeleted = false;
         
         // Elements
         const statusEl = document.getElementById('status');
@@ -148,9 +149,10 @@
         const inputEl = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
         const themeToggle = document.getElementById('themeToggle');
+        const clearChatBtn = document.getElementById('clearChatBtn');
         const imageInput = document.getElementById('imageInput');
         
-        // Dark mode toggle
+        // Dark mode
         const isDark = localStorage.getItem('darkMode') === 'true';
         if (isDark) document.body.classList.replace('light', 'dark');
         themeToggle.textContent = isDark ? '☀️' : '🌙';
@@ -160,6 +162,16 @@
             const dark = document.body.classList.contains('dark');
             localStorage.setItem('darkMode', dark);
             themeToggle.textContent = dark ? '☀️' : '🌙';
+        };
+        
+        // CLEAR CHAT LOCAL (hanya user ini)
+        clearChatBtn.onclick = () => {
+            if (confirm('Hapus semua chat di layar kamu? (lain user masih lihat)')) {
+                messagesEl.innerHTML = '';
+                chatDeleted = true;
+                socket.emit('clearChat');
+                clearChatBtn.style.opacity = '0.5';
+            }
         };
         
         // Input handling
@@ -173,6 +185,18 @@
         socket.on('connect', () => statusEl.textContent = '🟢 Online');
         socket.on('disconnect', () => statusEl.textContent = '🔴 Offline');
         socket.on('userCount', (count) => userCountEl.textContent = count);
+        socket.on('chatCleared', () => clearChatBtn.style.opacity = '0.5');
+        
+        // Load history
+        socket.on('chatHistory', (history) => {
+            if (!chatDeleted) {
+                messagesEl.innerHTML = '';
+                history.forEach(msg => {
+                    if (msg.type === 'text') addMessage(msg.username, msg.message, formatTime(msg.timestamp));
+                    else if (msg.type === 'image') addImageMessage(msg.username, msg.image, formatTime(msg.timestamp));
+                });
+            }
+        });
         
         function sendMessage() {
             const message = inputEl.value.trim();
@@ -190,7 +214,7 @@
             }
         };
         
-        // Upload foto
+        // Foto upload
         imageInput.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file || !file.type.startsWith('image/')) return;
@@ -203,8 +227,7 @@
                 const data = await response.json();
                 socket.emit('imageMessage', { 
                     username, 
-                    image: data.image,
-                    timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                    image: data.image 
                 });
             } catch (err) {
                 alert('Upload gagal');
@@ -212,12 +235,18 @@
             imageInput.value = '';
         };
         
-        // Receive messages
-        socket.on('message', (data) => addMessage(data.username, data.message));
-        socket.on('imageMessage', (data) => addImageMessage(data.username, data.image, data.timestamp));
+        socket.on('message', (data) => {
+            if (!chatDeleted) addMessage(data.username, data.message, formatTime(data.timestamp));
+        });
+        socket.on('imageMessage', (data) => {
+            if (!chatDeleted) addImageMessage(data.username, data.image, formatTime(data.timestamp));
+        });
         
-        function addMessage(user, msg) {
-            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        function formatTime(timestamp) {
+            return timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+        
+        function addMessage(user, msg, time) {
             const div = document.createElement('div');
             div.className = 'message';
             const hue = Math.floor(Math.random() * 360);
@@ -249,7 +278,7 @@
                         <span class="username">${user}</span>
                         <span class="timestamp">${time}</span>
                     </div>
-                    <img src="${imageSrc}" style="max-width:100%;border-radius:12px;margin-top:8px;max-height:300px;">
+                    <img src="${imageSrc}" class="message-image">
                 </div>
             `;
             messagesEl.appendChild(div); messagesEl.scrollTop = messagesEl.scrollHeight;
