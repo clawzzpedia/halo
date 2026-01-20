@@ -11,7 +11,6 @@ const io = socketIo(server, {
     path: '/socket.io/' 
 });
 
-// GLOBAL CHAT HISTORY
 let chatHistory = [];
 const MAX_HISTORY = 1000;
 
@@ -30,7 +29,6 @@ io.on('connection', (socket) => {
     userCount++;
     io.emit('userCount', userCount);
     
-    // Kirim history ke user baru
     socket.emit('chatHistory', chatHistory.slice(-50));
     
     socket.on('chatMessage', (data) => {
