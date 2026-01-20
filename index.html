@@ -3,22 +3,82 @@
 <head>
     <title>Anonymous Chat Room</title>
     <style>
-        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
-        #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-        #messageInput { width: 70%; padding: 10px; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
-        .message { margin-bottom: 10px; }
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        #messages { height: 400px; overflow-y: scroll; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background: white; border-radius: 10px; }
+        #messageInput { width: 60%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 12px 25px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+        button:hover { background: #0056b3; }
+        .message { margin-bottom: 12px; padding: 8px; background: #e9ecef; border-radius: 8px; }
         .username { font-weight: bold; color: #007bff; }
+        #status { color: #666; font-size: 14px; margin-bottom: 10px; }
+        .connected { color: green; }
+        .disconnected { color: red; }
     </style>
 </head>
 <body>
-    <h1>Chat Anonim</h1>
+    <h1>💬 Chat Anonim Multi-User</h1>
+    <div id="status">Menghubungkan...</div>
     <div id="messages"></div>
-    <input type="text" id="username" placeholder="Masukkan nama anonim (opsional)" maxlength="20">
-    <br><br>
+    <input type="text" id="username" placeholder="Nama anonim (opsional)" maxlength="20" style="width: 30%; padding: 10px; margin-bottom: 10px;">
+    <br>
     <input type="text" id="messageInput" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendMessage()">
     <button onclick="sendMessage()">Kirim</button>
+
+    <!-- Socket.io dari CDN -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="chat.js"></script>
+    
+    <script>
+        const socket = io('http://localhost:3000');
+        let username = 'Anon' + Math.floor(Math.random() * 1000);
+        
+        const statusEl = document.getElementById('status');
+        const usernameEl = document.getElementById('username');
+        const messagesEl = document.getElementById('messages');
+        const inputEl = document.getElementById('messageInput');
+        
+        // Update username
+        usernameEl.addEventListener('input', (e) => {
+            username = e.target.value.trim() || 'Anon' + Math.floor(Math.random() * 1000);
+        });
+        
+        // Status koneksi
+        socket.on('connect', () => {
+            statusEl.textContent = '🟢 Terhubung ke server';
+            statusEl.className = 'connected';
+            console.log('✅ Socket connected');
+        });
+        
+        socket.on('disconnect', () => {
+            statusEl.textContent = '🔴 Koneksi terputus';
+            statusEl.className = 'disconnected';
+            console.log('❌ Socket disconnected');
+        });
+        
+        // Terima pesan
+        socket.on('message', (data) => {
+            console.log('📨 Pesan diterima:', data); // Debug
+            addMessage(data.username, data.message);
+        });
+        
+        function sendMessage() {
+            const message = inputEl.value.trim();
+            if (message && socket.connected) {
+                const data = { username, message };
+                socket.emit('chatMessage', data);
+                console.log('📤 Pesan dikirim:', data); // Debug
+                inputEl.value = '';
+            } else {
+                alert('Server belum terhubung!');
+            }
+        }
+        
+        function addMessage(user, msg) {
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.innerHTML = `<span class="username">${user}:</span> ${msg}`;
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+    </script>
 </body>
 </html>
