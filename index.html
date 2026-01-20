@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💬 Chat Anonim - Live Room</title>
+    <title>💬 Chat Anonim - Emoji Live</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -32,7 +32,6 @@
             position: relative;
         }
         
-        /* Floating particles */
         .particles {
             position: absolute;
             top: 0;
@@ -112,44 +111,6 @@
             overflow: hidden;
         }
         
-        .sidebar {
-            width: 300px;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(20px);
-            padding: 25px;
-            overflow-y: auto;
-            border-right: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .online-users h3 {
-            color: #ffd700;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        
-        .user {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
-            margin-bottom: 10px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            animation: slideInUp 0.5s ease-out;
-        }
-        
-        .user-avatar {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-            border: 2px solid #fff;
-        }
-        
         #messages {
             flex: 1;
             overflow-y: auto;
@@ -168,11 +129,6 @@
         @keyframes slideInRight {
             from { opacity: 0; transform: translateX(50px); }
             to { opacity: 1; transform: translateX(0); }
-        }
-        
-        @keyframes slideInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         
         .message-avatar {
@@ -198,6 +154,7 @@
             color: #333;
             position: relative;
             backdrop-filter: blur(10px);
+            max-width: calc(100% - 65px);
         }
         
         .username {
@@ -214,6 +171,7 @@
             font-size: 16px;
             line-height: 1.6;
             word-wrap: break-word;
+            font-feature-settings: "liga" 1, "clig" 1;
         }
         
         .input-container {
@@ -221,10 +179,16 @@
             backdrop-filter: blur(25px);
             padding: 25px 30px;
             display: flex;
+            flex-direction: column;
             gap: 15px;
-            align-items: end;
             position: relative;
             z-index: 10;
+        }
+        
+        .text-inputs {
+            display: flex;
+            gap: 15px;
+            align-items: end;
         }
         
         #username, #messageInput {
@@ -235,16 +199,15 @@
             backdrop-filter: blur(10px);
             transition: all 0.3s ease;
             font-size: 16px;
+            color: #333;
         }
         
         #username {
             flex: 0 0 220px;
-            color: #333;
         }
         
         #messageInput {
             flex: 1;
-            color: #333;
             resize: none;
             min-height: 60px;
             max-height: 140px;
@@ -255,6 +218,43 @@
             border-color: #ffd700;
             box-shadow: 0 0 0 4px rgba(255,215,0,0.3);
             transform: scale(1.02);
+        }
+        
+        /* EMOJI PICKER */
+        .emoji-picker {
+            display: flex;
+            gap: 10px;
+            padding: 10px 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        
+        .emoji-picker::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .emoji-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .emoji-btn:hover {
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            background: rgba(255,215,0,0.9);
         }
         
         #sendBtn {
@@ -278,37 +278,19 @@
         }
         
         /* RESPONSIVE */
-        @media (max-width: 1024px) {
-            .sidebar { width: 250px; }
-        }
-        
         @media (max-width: 768px) {
-            .sidebar { 
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                z-index: 20;
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-            }
-            .sidebar.open { transform: translateX(0); }
             .header { padding: 15px 20px; }
-            .message { max-width: 90%; flex-direction: column; }
-            .message-avatar { align-self: flex-start; }
-            .input-container { 
-                flex-direction: column;
-                padding: 20px;
-            }
-            #sendBtn { width: 100%; }
+            .message { max-width: 95%; }
+            .text-inputs { flex-direction: column; }
+            #username { flex: 1; }
+            .emoji-picker { justify-content: center; }
+            .emoji-btn { width: 45px; height: 45px; font-size: 20px; }
         }
         
         /* Scrollbar */
-        #messages::-webkit-scrollbar,
-        .sidebar::-webkit-scrollbar { width: 8px; }
-        #messages::-webkit-scrollbar-track,
-        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        #messages::-webkit-scrollbar-thumb,
-        .sidebar::-webkit-scrollbar-thumb { 
+        #messages::-webkit-scrollbar { width: 8px; }
+        #messages::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        #messages::-webkit-scrollbar-thumb { 
             background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
             border-radius: 10px;
         }
@@ -319,7 +301,7 @@
     
     <div class="container">
         <div class="header">
-            <div class="logo">✨ Chat Live</div>
+            <div class="logo">✨ Chat Emoji Live</div>
             <div class="stats">
                 <div class="stat" id="status">Menghubungkan...</div>
                 <div class="stat" id="userCount">0 online</div>
@@ -327,19 +309,30 @@
         </div>
         
         <div class="chat-container">
-            <div class="sidebar" id="sidebar">
-                <div class="online-users">
-                    <h3>👥 Online</h3>
-                    <div id="usersList"></div>
-                </div>
-            </div>
-            
             <div id="messages"></div>
         </div>
         
         <div class="input-container">
-            <input type="text" id="username" placeholder="Nama kamu..." maxlength="20">
-            <textarea id="messageInput" placeholder="Tulis pesan seru disini... 💬" rows="1"></textarea>
+            <div class="text-inputs">
+                <input type="text" id="username" placeholder="Nama kamu... 👤" maxlength="20">
+                <textarea id="messageInput" placeholder="Tulis pesan + emoji disini... 💬" rows="1"></textarea>
+            </div>
+            
+            <div class="emoji-picker">
+                <button class="emoji-btn" onclick="insertEmoji('😀')">😀</button>
+                <button class="emoji-btn" onclick="insertEmoji('😂')">😂</button>
+                <button class="emoji-btn" onclick="insertEmoji('❤️')">❤️</button>
+                <button class="emoji-btn" onclick="insertEmoji('🔥')">🔥</button>
+                <button class="emoji-btn" onclick="insertEmoji('👍')">👍</button>
+                <button class="emoji-btn" onclick="insertEmoji('🎉')">🎉</button>
+                <button class="emoji-btn" onclick="insertEmoji('😍')">😍</button>
+                <button class="emoji-btn" onclick="insertEmoji('🚀')">🚀</button>
+                <button class="emoji-btn" onclick="insertEmoji('⭐')">⭐</button>
+                <button class="emoji-btn" onclick="insertEmoji('💯')">💯</button>
+                <button class="emoji-btn" onclick="insertEmoji('👋')">👋</button>
+                <button class="emoji-btn" onclick="insertEmoji('🙌')">🙌</button>
+            </div>
+            
             <button id="sendBtn">🚀 Kirim</button>
         </div>
     </div>
@@ -348,7 +341,6 @@
     <script>
         const socket = io();
         let username = 'Anon' + Math.floor(Math.random() * 1000);
-        let userCount = 0;
         
         // DOM elements
         const statusEl = document.getElementById('status');
@@ -357,7 +349,6 @@
         const messagesEl = document.getElementById('messages');
         const inputEl = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
-        const usersListEl = document.getElementById('usersList');
         const particlesEl = document.getElementById('particles');
         
         // Create floating particles
@@ -368,6 +359,21 @@
             particle.style.animationDelay = Math.random() * 6 + 's';
             particle.style.animationDuration = (Math.random() * 3 + 4) + 's';
             particlesEl.appendChild(particle);
+        }
+        
+        // EMOJI FUNCTION
+        function insertEmoji(emoji) {
+            const input = inputEl;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const textBefore = input.value.substring(0, start);
+            const textAfter = input.value.substring(end);
+            input.value = textBefore + emoji + ' ' + textAfter;
+            input.focus();
+            const newPos = start + emoji.length + 1;
+            input.setSelectionRange(newPos, newPos);
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 140) + 'px';
         }
         
         // Auto-resize textarea
@@ -390,12 +396,6 @@
         socket.on('disconnect', () => {
             statusEl.textContent = '🔴 Offline';
             statusEl.className = 'disconnected';
-        });
-        
-        // User count
-        socket.on('userCount', (count) => {
-            userCount = count;
-            userCountEl.textContent = count + ' online';
         });
         
         function sendMessage() {
