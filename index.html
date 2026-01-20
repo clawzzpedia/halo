@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Anonymous Chat Room</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+        #messageInput { width: 70%; padding: 10px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .message { margin-bottom: 10px; }
+        .username { font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>Chat Anonim</h1>
+    <div id="messages"></div>
+    <input type="text" id="username" placeholder="Masukkan nama anonim (opsional)" maxlength="20">
+    <br><br>
+    <input type="text" id="messageInput" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendMessage()">
+    <button onclick="sendMessage()">Kirim</button>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="chat.js"></script>
+</body>
+</html>
