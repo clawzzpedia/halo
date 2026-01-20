@@ -1,206 +1,1245 @@
-<script>
-    const socket = io({ path: '/socket.io/', transports: ['websocket', 'polling'] });
-    let username = 'Anon' + Math.floor(Math.random() * 1000);
-    let chatCleared = false;
-    
-    // DETECT LAYOUT
-    const isMobile = window.innerWidth <= 768;
-    const desktopElements = {
-        status: document.getElementById('desktopStatus'),
-        userCount: document.getElementById('desktopUserCount'),
-        messages: document.getElementById('desktopMessages'),
-        input: document.getElementById('desktopInput'),
-        sendBtn: document.getElementById('desktopSendBtn'),
-        imageInput: document.getElementById('desktopImageInput')
-    };
-    const mobileElements = {
-        status: document.getElementById('mobileStatus'),
-        userCount: document.getElementById('mobileUserCount'),
-        messages: document.getElementById('mobileMessages'),
-        input: document.getElementById('mobileInput'),
-        sendBtn: document.getElementById('mobileSendBtn'),
-        themeToggle: document.getElementById('mobileThemeToggle'),
-        clearBtn: document.getElementById('mobileClearBtn'),
-        imageInput: document.getElementById('mobileImageInput')
-    };
-    
-    const elements = isMobile ? mobileElements : desktopElements;
-    
-    // Dark mode
-    if (localStorage.getItem('darkMode') === 'true') {
-        document.body.classList.replace('light', 'dark');
-        if (isMobile && mobileElements.themeToggle) mobileElements.themeToggle.textContent = '☀️';
-    }
-    
-    // Theme toggle mobile
-    if (mobileElements.themeToggle) {
-        mobileElements.themeToggle.onclick = () => {
-            document.body.classList.toggle('dark');
-            const isDark = document.body.classList.contains('dark');
-            localStorage.setItem('darkMode', isDark);
-            mobileElements.themeToggle.textContent = isDark ? '☀️' : '🌙';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💬 Chat Anonim Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh; overflow: hidden;
+        }
+        body.light { background: #f0f2f5; color: #202124; }
+        body.dark { 
+            background: #0c1117; color: #e8eaed;
+            --sidebar: #171e28; --chat-bg: #151b22; --input-bg: #1e2530; --bubble: #2d3748;
+        }
+
+        /* DESKTOP (>768px) - Discord Style */
+        @media (min-width: 769px) {
+            .app-container { display: flex; height: 100vh; max-width: 1400px; margin: 0 auto; }
+            .sidebar {
+                width: 360px; background: #202124; border-right: 1px solid #373a40;
+                display: flex; flex-direction: column;
+            }
+            body.dark .sidebar { background: var(--sidebar); border-right-color: #2a3442; }
+            .sidebar-header {
+                padding: 24px 20px; border-bottom: 1px solid #373a40; display: flex; align-items: center; gap: 16px;
+            }
+            body.dark .sidebar-header { border-bottom-color: #2a3442; }
+            .sidebar-title { font-size: 22px; font-weight: 700; color: white; }
+            .stats-row { display: flex; gap: 12px; }
+            .stat-badge { 
+                background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 20px;
+                font-size: 14px; font-weight: 600; color: white;
+            }
+            .chat-list { flex: 1; overflow-y: auto; }
+            .chat-item {
+                padding: 18px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05);
+                display: flex; align-items: center; gap: 16px; transition: all 0.2s;
+            }
+            .chat-item:hover { background: rgba(255,255,255,0.08); }
+            .chat-avatar { 
+                width: 56px; height: 56px; border-radius: 50%; font-size: 22px; font-weight: 700;
+                display: flex; align-items: center; justify-content: center; color: white;
+            }
+            
+            .main-chat { flex: 1; display: flex; flex-direction: column; }
+            .chat-header {
+                padding: 24px 28px; border-bottom: 1px solid #dadce0; background: white;
+                display: flex; align-items: center; gap: 20px;
+            }
+            body.dark .chat-header { background: var(--input-bg); border-color: #303845; color: #e8eaed; }
+            .chat-user-avatar { width: 52px; height: 52px; font-size: 20px; }
+            .chat-info h2 { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+            .chat-status { font-size: 14px; opacity: 0.7; }
+            
+            .messages-area {
+                flex: 1; overflow-y: auto; padding: 32px 28px; background: #f8f9fa;
+            }
+            body.dark .messages-area { background: var(--chat-bg); }
+            .message { 
+                display: flex; gap: 16px; margin-bottom: 28px; max-width: 70%; animation: slideIn 0.3s ease;
+            }
+            @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; } }
+            .msg-avatar { 
+                width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; font-size: 18px; font-weight: 700;
+            }
+            .msg-bubble {
+                background: white; padding: 16px 20px; border-radius: 24px; flex: 1;
+                box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            }
+            body.dark .msg-bubble { background: var(--bubble); }
+            .msg-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 13px; }
+            .msg-username { font-weight: 600; font-size: 15px; }
+            body.dark .msg-username { color: #60a5fa; }
+            .msg-time { opacity: 0.7; }
+            .msg-text { font-size: 15.5px; line-height: 1.5; }
+            .msg-image { max-width: 100%; border-radius: 20px; margin-top: 12px; max-height: 340px; }
+            
+            .input-section {
+                padding: 24px 28px; border-top: 1px solid #dadce0; background: white; display: flex; gap: 16px; align-items: flex-end;
+            }
+            body.dark .input-section { background: var(--input-bg); border-color: #303845; }
+            #desktopInput {
+                flex: 1; min-height: 60px; max-height: 160px; padding: 18px 20px; border: 2px solid #e2e8f0;
+                border-radius: 32px; font-size: 16px; resize: none; font-family: inherit;
+            }
+            body.dark #desktopInput { background: #374151; border-color: #4b5563; color: #e8eaed; }
+            .btn-desktop {
+                width: 60px; height: 60px; border: none; border-radius: 50%; cursor: pointer; font-size: 22px;
+                display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            }
+            .btn-attach-desktop { background: #e5e7eb; color: #6b7280; }
+            body.dark .btn-attach-desktop { background: #4b5563; color: #d1d5db; }
+            .btn-send-desktop { background: #3b82f6; color: white; }
+            .btn-send-desktop:not(.enabled) { opacity: 0.6; }
+        }
+
+        /* MOBILE (≤768px) - WhatsApp Style */
+        @media (max-width: 768px) {
+            .app-container { display: none; }
+            .mobile-app {
+                height: 100vh; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; width: 100%;
+            }
+            .mobile-header {
+                background: linear-gradient(135deg, #075e54 0%, #128c7e 100%); color: white; padding: 14px 18px;
+                position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center;
+                box-shadow: 0 4px 20px rgba(7,94,84,0.3);
+            }
+            .mobile-title { font-size: 19px; font-weight: 600; }
+            .mobile-stats { display: flex; align-items: center; gap: 14px; }
+            .user-badge {
+                background: rgba(255,255,255,0.25); padding: 8px 14px; border-radius: 20px; font-size: 15px; font-weight: 600;
+            }
+            .btn-mobile-round {
+                width: 46px; height: 46px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2);
+                color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px;
+                transition: all 0.2s;
+            }
+            .btn-mobile-round:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
+            
+            .mobile-messages {
+                flex: 1; overflow-y: auto; padding: 16px 20px; padding-bottom: 130px; background: linear-gradient(to bottom, #efeae2 0%, #e5ddd5 100%);
+            }
+            body.dark .mobile-messages { background: linear-gradient(to bottom, #0f1a24 0%, #15212b 100%); }
+            .mobile-msg {
+                display: flex; gap: 16px; margin-bottom: 24px; max-width: 90%; animation: slideInMobile 0.3s ease;
+            }
+            @keyframes slideInMobile { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; } }
+            .mobile-msg-avatar {
+                width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; font-size: 20px; font-weight: 700;
+                display: flex; align-items: center; justify-content: center;
+            }
+            .mobile-msg-bubble {
+                background: rgba(255,255,255,0.95); padding: 14px 18px; border-radius: 22px; flex: 1;
+                backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            }
+            body.dark .mobile-msg-bubble { background: rgba(47,67,88,0.95); }
+            .mobile-msg-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13.5px; }
+            .mobile-msg-username { font-weight: 600; color: #075e54; font-size: 16px; }
+            body.dark .mobile-msg-username { color: #60a5fa; }
+            .mobile-msg-time { opacity: 0.8; font-size: 13px; }
+            .mobile-msg-text { font-size: 16px; line-height: 1.45; }
+            .mobile-msg-image { max-width: 100%; border-radius: 18px; margin-top: 10px; max-height: 320px; }
+            
+            .mobile-input-area {
+                position: fixed; bottom: 0; left: 0; right: 0; background: #f0f0f0; padding: 16px 20px;
+                display: flex; gap: 16px; box-shadow: 0 -6px 30px rgba(0,0,0,0.15); z-index: 50; max-width: 500px; margin: 0 auto;
+            }
+            body.dark .mobile-input-area { background: #1a2637; }
+            .mobile-input-row {
+                flex: 1; background: white; border-radius: 30px; padding: 14px 20px; display: flex; align-items: flex-end; gap: 16px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            body.dark .mobile-input-row { background: rgba(47,67,88,0.8); }
+            #mobileInput {
+                flex: 1; min-height: 52px; max-height: 140px; border: none; background: transparent;
+                font-size: 16px; resize: none; font-family: inherit; padding: 6px 0; color: inherit;
+            }
+            #mobileInput::placeholder { opacity: 0.6; }
+            .btn-mobile-send {
+                width: 52px; height: 52px; border: none; border-radius: 50%; background: #00a884; color: white;
+                font-size: 22px; cursor: pointer; flex-shrink: 0; opacity: 0.7; transition: all 0.2s;
+            }
+            .btn-mobile-send.enabled { opacity: 1; }
+            .btn-mobile-send.enabled:active { background: #00d498; transform: scale(0.95); }
+        }
+    </style>
+</head>
+<body class="light">
+    <!-- DESKTOP LAYOUT -->
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">💬 Chat Anonim Pro</div>
+                <div class="stats-row">
+                    <div class="stat-badge" id="desktopUsers">0</div>
+                    <div class="stat-badge" id="desktopStatus">🟢 Online</div>
+                </div>
+            </div>
+            <div class="chat-list">
+                <div class="chat-item">
+                    <div class="chat-avatar" style="background:hsl(200,70%,50%)">A</div>
+                    <div style="flex:1">
+                        <div style="font-size:16px;font-weight:600;margin-bottom:4px">Anon123</div>
+                        <div style="font-size:14px;opacity:0.7">Online</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="main-chat">
+            <div class="chat-header">
+                <div class="chat-user-avatar" style="background:hsl(220,70%,50%)">A</div>
+                <div style="flex:1">
+                    <div style="font-size:20px;font-weight:600">Chat Room Umum</div>
+                    <div class="chat-status" id="chatStatus">🟢 12 online</div>
+                </div>
+            </div>
+            <div class="messages-area" id="desktopMessages"></div>
+            <div class="input-section">
+                <input type="file" id="desktopImage" accept="image/*" style="display:none">
+                <button class="btn-desktop btn-attach-desktop" onclick="document.getElementById('desktopImage').click()" title="Foto">📎</button>
+                <textarea id="desktopInput" placeholder="Ketik pesan Anda..." rows="1"></textarea>
+                <button class="btn-desktop btn-send-desktop" id="desktopSend">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE LAYOUT -->
+    <div class="mobile-app">
+        <div class="mobile-header">
+            <div class="mobile-title">💬 Chat Anonim</div>
+            <div class="mobile-stats">
+                <div class="user-badge" id="mobileUsers">0</div>
+                <div id="mobileStatus">Menghubungkan...</div>
+                <button id="mobileTheme" class="btn-mobile-round" title="Tema">🌙</button>
+                <button id="mobileClear" class="btn-mobile-round" title="Hapus Chat">🗑️</button>
+            </div>
+        </div>
+        <div class="mobile-messages" id="mobileMessages"></div>
+        <div class="mobile-input-area">
+            <div class="mobile-input-row">
+                <input type="file" id="mobileImage" accept="image/*" style="display:none">
+                <button class="btn-mobile-round" onclick="document.getElementById('mobileImage').click()" title="Foto">📎</button>
+                <textarea id="mobileInput" placeholder="Ketik pesan..." rows="1"></textarea>
+                <button class="btn-mobile-send" id="mobileSend">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io({ path: '/socket.io/', transports: ['websocket', 'polling'] });
+        let username = 'Anon' + Math.floor(Math.random() * 1000);
+        let chatCleared = false;
+        let isMobile = window.innerWidth <= 768;
+        
+        // Elements
+        const desktopEls = {
+            users: document.getElementById('desktopUsers'),
+            status: document.getElementById('desktopStatus'),
+            messages: document.getElementById('desktopMessages'),
+            input: document.getElementById('desktopInput'),
+            send: document.getElementById('desktopSend'),
+            image: document.getElementById('desktopImage')
         };
-    }
-    
-    // Clear chat
-    if (mobileElements.clearBtn) {
-        mobileElements.clearBtn.onclick = () => {
-            if (confirm('Hapus chat di layar kamu?')) {
-                elements.messages.innerHTML = '';
-                chatCleared = true;
-                mobileElements.clearBtn.style.opacity = '0.5';
+        const mobileEls = {
+            users: document.getElementById('mobileUsers'),
+            status: document.getElementById('mobileStatus'),
+            messages: document.getElementById('mobileMessages'),
+            input: document.getElementById('mobileInput'),
+            send: document.getElementById('mobileSend'),
+            theme: document.getElementById('mobileTheme'),
+            clear: document.getElementById('mobileClear'),
+            image: document.getElementById('mobileImage')
+        };
+        
+        const els = isMobile ? mobileEls : desktopEls;
+        
+        // Dark mode
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.replace('light', 'dark');
+            if (mobileEls.theme) mobileEls.theme.textContent = '☀️';
+        }
+        
+        // Event listeners
+        if (mobileEls.theme) {
+            mobileEls.theme.onclick = () => {
+                document.body.classList.toggle('dark');
+                localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+                mobileEls.theme.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+            };
+        }
+        
+        if (mobileEls.clear) {
+            mobileEls.clear.onclick = () => {
+                if (confirm('Hapus semua chat di layar kamu?')) {
+                    els.messages.innerHTML = '';
+                    chatCleared = true;
+                }
+            };
+        }
+        
+        els.input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+            els.send.classList.toggle('enabled', this.value.trim());
+        });
+        
+        // Socket
+        socket.on('connect', () => {
+            els.status.textContent = '🟢 Online';
+            if (desktopEls.users) document.getElementById('chatStatus').textContent = `🟢 ${username} online`;
+        });
+        
+        socket.on('userCount', (count) => {
+            const text = count + (count === 1 ? ' user' : ' users');
+            els.users.textContent = text;
+            if (desktopEls.users) desktopEls.users.textContent = text;
+        });
+        
+        socket.on('chatHistory', (history) => {
+            if (!chatCleared) {
+                els.messages.innerHTML = '';
+                history.forEach(msg => {
+                    if (msg.type === 'text') addMessage(msg.username, msg.message, msg.timestamp);
+                    if (msg.type === 'image') addImageMessage(msg.username, msg.image, msg.timestamp);
+                });
+            }
+        });
+        
+        socket.on('message', data => !chatCleared && addMessage(data.username, data.message, data.timestamp));
+        socket.on('imageMessage', data => !chatCleared && addImageMessage(data.username, data.image, data.timestamp));
+        
+        function sendMessage() {
+            const text = els.input.value.trim();
+            if (text && socket.connected) {
+                socket.emit('chatMessage', { username, message: text });
+                els.input.value = ''; els.input.style.height = 'auto';
+                els.send.classList.remove('enabled');
+            }
+        }
+        
+        els.send.onclick = sendMessage;
+        els.input.onkeypress = e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); sendMessage();
             }
         };
-    }
-    
-    // Input resize
-    elements.input.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 140) + 'px';
-        elements.sendBtn.classList.toggle('enabled', this.value.trim());
-    });
-    
-    // Socket events
-    socket.on('connect', () => {
-        elements.status.textContent = '🟢 Online';
-        if (!isMobile) desktopElements.status2.textContent = '🟢 Online';
-    });
-    socket.on('disconnect', () => elements.status.textContent = '🔴 Offline');
-    socket.on('userCount', (count) => {
-        elements.userCount.textContent = count;
-        if (!isMobile) desktopElements.userCount.textContent = count;
-    });
-    
-    socket.on('chatHistory', (history) => {
-        if (!chatCleared) {
-            elements.messages.innerHTML = '';
-            history.forEach(msg => {
-                if (msg.type === 'text') addMessage(msg.username, msg.message, msg.timestamp);
-                else if (msg.type === 'image') addImageMessage(msg.username, msg.image, msg.timestamp);
-            });
+        
+        els.image.onchange = async e => {
+            const file = e.target.files[0];
+            if (file?.type.startsWith('image/')) {
+                const formData = new FormData();
+                formData.append('image', file);
+                try {
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    socket.emit('imageMessage', { username, image: data.image });
+                } catch { alert('Gagal upload'); }
+            }
+            els.image.value = '';
+        };
+        
+        function addMessage(user, text, time) {
+            const div = document.createElement('div');
+            const hue = Math.random() * 360;
+            const avatar = user.charAt(0).toUpperCase();
+            
+            if (isMobile) {
+                div.className = 'mobile-msg';
+                div.innerHTML = `
+                    <div class="mobile-msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="mobile-msg-bubble">
+                        <div class="mobile-msg-header">
+                            <span class="mobile-msg-username">${user}</span>
+                            <span class="mobile-msg-time">${time}</span>
+                        </div>
+                        <div class="mobile-msg-text">${text}</div>
+                    </div>
+                `;
+            } else {
+                div.className = 'message';
+                div.innerHTML = `
+                    <div class="msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header">
+                            <span class="msg-username">${user}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <div class="msg-text">${text}</div>
+                    </div>
+                `;
+            }
+            els.messages.appendChild(div);
+            els.messages.scrollTop = els.messages.scrollHeight;
         }
-    });
-    
-    socket.on('message', (data) => {
-        if (!chatCleared) addMessage(data.username, data.message, data.timestamp);
-    });
-    
-    socket.on('imageMessage', (data) => {
-        if (!chatCleared) addImageMessage(data.username, data.image, data.timestamp);
-    });
-    
-    function sendMessage() {
-        const text = elements.input.value.trim();
-        if (text && socket.connected) {
-            socket.emit('chatMessage', { username, message: text });
-            elements.input.value = '';
-            elements.input.style.height = 'auto';
-            elements.sendBtn.classList.remove('enabled');
+        
+        function addImageMessage(user, image, time) {
+            const div = document.createElement('div');
+            const hue = Math.random() * 360;
+            const avatar = user.charAt(0).toUpperCase();
+            
+            if (isMobile) {
+                div.className = 'mobile-msg';
+                div.innerHTML = `
+                    <div class="mobile-msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="mobile-msg-bubble">
+                        <div class="mobile-msg-header">
+                            <span class="mobile-msg-username">${user}</span>
+                            <span class="mobile-msg-time">${time}</span>
+                        </div>
+                        <img src="${image}" class="mobile-msg-image">
+                    </div>
+                `;
+            } else {
+                div.className = 'message';
+                div.innerHTML = `
+                    <div class="msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header">
+                            <span class="msg-username">${user}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <img src="${image}" class="msg-image">
+                    </div>
+                `;
+            }
+            els.messages.appendChild(div);
+            els.messages.scrollTop = els.messages.scrollHeight;
         }
-    }
-    
-    elements.sendBtn.onclick = sendMessage;
-    elements.input.onkeypress = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💬 Chat Anonim Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh; overflow: hidden;
         }
-    };
-    
-    // Image upload
-    elements.imageInput.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (file && file.type.startsWith('image/')) {
-            const formData = new FormData();
-            formData.append('image', file);
-            try {
-                const res = await fetch('/upload', { method: 'POST', body: formData });
-                const data = await res.json();
-                socket.emit('imageMessage', { username, image: data.image });
-            } catch (err) {
-                alert('Gagal upload foto');
+        body.light { background: #f0f2f5; color: #202124; }
+        body.dark { 
+            background: #0c1117; color: #e8eaed;
+            --sidebar: #171e28; --chat-bg: #151b22; --input-bg: #1e2530; --bubble: #2d3748;
+        }
+
+        /* DESKTOP (>768px) - Discord Style */
+        @media (min-width: 769px) {
+            .app-container { display: flex; height: 100vh; max-width: 1400px; margin: 0 auto; }
+            .sidebar {
+                width: 360px; background: #202124; border-right: 1px solid #373a40;
+                display: flex; flex-direction: column;
+            }
+            body.dark .sidebar { background: var(--sidebar); border-right-color: #2a3442; }
+            .sidebar-header {
+                padding: 24px 20px; border-bottom: 1px solid #373a40; display: flex; align-items: center; gap: 16px;
+            }
+            body.dark .sidebar-header { border-bottom-color: #2a3442; }
+            .sidebar-title { font-size: 22px; font-weight: 700; color: white; }
+            .stats-row { display: flex; gap: 12px; }
+            .stat-badge { 
+                background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 20px;
+                font-size: 14px; font-weight: 600; color: white;
+            }
+            .chat-list { flex: 1; overflow-y: auto; }
+            .chat-item {
+                padding: 18px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05);
+                display: flex; align-items: center; gap: 16px; transition: all 0.2s;
+            }
+            .chat-item:hover { background: rgba(255,255,255,0.08); }
+            .chat-avatar { 
+                width: 56px; height: 56px; border-radius: 50%; font-size: 22px; font-weight: 700;
+                display: flex; align-items: center; justify-content: center; color: white;
+            }
+            
+            .main-chat { flex: 1; display: flex; flex-direction: column; }
+            .chat-header {
+                padding: 24px 28px; border-bottom: 1px solid #dadce0; background: white;
+                display: flex; align-items: center; gap: 20px;
+            }
+            body.dark .chat-header { background: var(--input-bg); border-color: #303845; color: #e8eaed; }
+            .chat-user-avatar { width: 52px; height: 52px; font-size: 20px; }
+            .chat-info h2 { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+            .chat-status { font-size: 14px; opacity: 0.7; }
+            
+            .messages-area {
+                flex: 1; overflow-y: auto; padding: 32px 28px; background: #f8f9fa;
+            }
+            body.dark .messages-area { background: var(--chat-bg); }
+            .message { 
+                display: flex; gap: 16px; margin-bottom: 28px; max-width: 70%; animation: slideIn 0.3s ease;
+            }
+            @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; } }
+            .msg-avatar { 
+                width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; font-size: 18px; font-weight: 700;
+            }
+            .msg-bubble {
+                background: white; padding: 16px 20px; border-radius: 24px; flex: 1;
+                box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            }
+            body.dark .msg-bubble { background: var(--bubble); }
+            .msg-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 13px; }
+            .msg-username { font-weight: 600; font-size: 15px; }
+            body.dark .msg-username { color: #60a5fa; }
+            .msg-time { opacity: 0.7; }
+            .msg-text { font-size: 15.5px; line-height: 1.5; }
+            .msg-image { max-width: 100%; border-radius: 20px; margin-top: 12px; max-height: 340px; }
+            
+            .input-section {
+                padding: 24px 28px; border-top: 1px solid #dadce0; background: white; display: flex; gap: 16px; align-items: flex-end;
+            }
+            body.dark .input-section { background: var(--input-bg); border-color: #303845; }
+            #desktopInput {
+                flex: 1; min-height: 60px; max-height: 160px; padding: 18px 20px; border: 2px solid #e2e8f0;
+                border-radius: 32px; font-size: 16px; resize: none; font-family: inherit;
+            }
+            body.dark #desktopInput { background: #374151; border-color: #4b5563; color: #e8eaed; }
+            .btn-desktop {
+                width: 60px; height: 60px; border: none; border-radius: 50%; cursor: pointer; font-size: 22px;
+                display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            }
+            .btn-attach-desktop { background: #e5e7eb; color: #6b7280; }
+            body.dark .btn-attach-desktop { background: #4b5563; color: #d1d5db; }
+            .btn-send-desktop { background: #3b82f6; color: white; }
+            .btn-send-desktop:not(.enabled) { opacity: 0.6; }
+        }
+
+        /* MOBILE (≤768px) - WhatsApp Style */
+        @media (max-width: 768px) {
+            .app-container { display: none; }
+            .mobile-app {
+                height: 100vh; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; width: 100%;
+            }
+            .mobile-header {
+                background: linear-gradient(135deg, #075e54 0%, #128c7e 100%); color: white; padding: 14px 18px;
+                position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center;
+                box-shadow: 0 4px 20px rgba(7,94,84,0.3);
+            }
+            .mobile-title { font-size: 19px; font-weight: 600; }
+            .mobile-stats { display: flex; align-items: center; gap: 14px; }
+            .user-badge {
+                background: rgba(255,255,255,0.25); padding: 8px 14px; border-radius: 20px; font-size: 15px; font-weight: 600;
+            }
+            .btn-mobile-round {
+                width: 46px; height: 46px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2);
+                color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px;
+                transition: all 0.2s;
+            }
+            .btn-mobile-round:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
+            
+            .mobile-messages {
+                flex: 1; overflow-y: auto; padding: 16px 20px; padding-bottom: 130px; background: linear-gradient(to bottom, #efeae2 0%, #e5ddd5 100%);
+            }
+            body.dark .mobile-messages { background: linear-gradient(to bottom, #0f1a24 0%, #15212b 100%); }
+            .mobile-msg {
+                display: flex; gap: 16px; margin-bottom: 24px; max-width: 90%; animation: slideInMobile 0.3s ease;
+            }
+            @keyframes slideInMobile { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; } }
+            .mobile-msg-avatar {
+                width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; font-size: 20px; font-weight: 700;
+                display: flex; align-items: center; justify-content: center;
+            }
+            .mobile-msg-bubble {
+                background: rgba(255,255,255,0.95); padding: 14px 18px; border-radius: 22px; flex: 1;
+                backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            }
+            body.dark .mobile-msg-bubble { background: rgba(47,67,88,0.95); }
+            .mobile-msg-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13.5px; }
+            .mobile-msg-username { font-weight: 600; color: #075e54; font-size: 16px; }
+            body.dark .mobile-msg-username { color: #60a5fa; }
+            .mobile-msg-time { opacity: 0.8; font-size: 13px; }
+            .mobile-msg-text { font-size: 16px; line-height: 1.45; }
+            .mobile-msg-image { max-width: 100%; border-radius: 18px; margin-top: 10px; max-height: 320px; }
+            
+            .mobile-input-area {
+                position: fixed; bottom: 0; left: 0; right: 0; background: #f0f0f0; padding: 16px 20px;
+                display: flex; gap: 16px; box-shadow: 0 -6px 30px rgba(0,0,0,0.15); z-index: 50; max-width: 500px; margin: 0 auto;
+            }
+            body.dark .mobile-input-area { background: #1a2637; }
+            .mobile-input-row {
+                flex: 1; background: white; border-radius: 30px; padding: 14px 20px; display: flex; align-items: flex-end; gap: 16px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            body.dark .mobile-input-row { background: rgba(47,67,88,0.8); }
+            #mobileInput {
+                flex: 1; min-height: 52px; max-height: 140px; border: none; background: transparent;
+                font-size: 16px; resize: none; font-family: inherit; padding: 6px 0; color: inherit;
+            }
+            #mobileInput::placeholder { opacity: 0.6; }
+            .btn-mobile-send {
+                width: 52px; height: 52px; border: none; border-radius: 50%; background: #00a884; color: white;
+                font-size: 22px; cursor: pointer; flex-shrink: 0; opacity: 0.7; transition: all 0.2s;
+            }
+            .btn-mobile-send.enabled { opacity: 1; }
+            .btn-mobile-send.enabled:active { background: #00d498; transform: scale(0.95); }
+        }
+    </style>
+</head>
+<body class="light">
+    <!-- DESKTOP LAYOUT -->
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">💬 Chat Anonim Pro</div>
+                <div class="stats-row">
+                    <div class="stat-badge" id="desktopUsers">0</div>
+                    <div class="stat-badge" id="desktopStatus">🟢 Online</div>
+                </div>
+            </div>
+            <div class="chat-list">
+                <div class="chat-item">
+                    <div class="chat-avatar" style="background:hsl(200,70%,50%)">A</div>
+                    <div style="flex:1">
+                        <div style="font-size:16px;font-weight:600;margin-bottom:4px">Anon123</div>
+                        <div style="font-size:14px;opacity:0.7">Online</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="main-chat">
+            <div class="chat-header">
+                <div class="chat-user-avatar" style="background:hsl(220,70%,50%)">A</div>
+                <div style="flex:1">
+                    <div style="font-size:20px;font-weight:600">Chat Room Umum</div>
+                    <div class="chat-status" id="chatStatus">🟢 12 online</div>
+                </div>
+            </div>
+            <div class="messages-area" id="desktopMessages"></div>
+            <div class="input-section">
+                <input type="file" id="desktopImage" accept="image/*" style="display:none">
+                <button class="btn-desktop btn-attach-desktop" onclick="document.getElementById('desktopImage').click()" title="Foto">📎</button>
+                <textarea id="desktopInput" placeholder="Ketik pesan Anda..." rows="1"></textarea>
+                <button class="btn-desktop btn-send-desktop" id="desktopSend">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE LAYOUT -->
+    <div class="mobile-app">
+        <div class="mobile-header">
+            <div class="mobile-title">💬 Chat Anonim</div>
+            <div class="mobile-stats">
+                <div class="user-badge" id="mobileUsers">0</div>
+                <div id="mobileStatus">Menghubungkan...</div>
+                <button id="mobileTheme" class="btn-mobile-round" title="Tema">🌙</button>
+                <button id="mobileClear" class="btn-mobile-round" title="Hapus Chat">🗑️</button>
+            </div>
+        </div>
+        <div class="mobile-messages" id="mobileMessages"></div>
+        <div class="mobile-input-area">
+            <div class="mobile-input-row">
+                <input type="file" id="mobileImage" accept="image/*" style="display:none">
+                <button class="btn-mobile-round" onclick="document.getElementById('mobileImage').click()" title="Foto">📎</button>
+                <textarea id="mobileInput" placeholder="Ketik pesan..." rows="1"></textarea>
+                <button class="btn-mobile-send" id="mobileSend">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io({ path: '/socket.io/', transports: ['websocket', 'polling'] });
+        let username = 'Anon' + Math.floor(Math.random() * 1000);
+        let chatCleared = false;
+        let isMobile = window.innerWidth <= 768;
+        
+        // Elements
+        const desktopEls = {
+            users: document.getElementById('desktopUsers'),
+            status: document.getElementById('desktopStatus'),
+            messages: document.getElementById('desktopMessages'),
+            input: document.getElementById('desktopInput'),
+            send: document.getElementById('desktopSend'),
+            image: document.getElementById('desktopImage')
+        };
+        const mobileEls = {
+            users: document.getElementById('mobileUsers'),
+            status: document.getElementById('mobileStatus'),
+            messages: document.getElementById('mobileMessages'),
+            input: document.getElementById('mobileInput'),
+            send: document.getElementById('mobileSend'),
+            theme: document.getElementById('mobileTheme'),
+            clear: document.getElementById('mobileClear'),
+            image: document.getElementById('mobileImage')
+        };
+        
+        const els = isMobile ? mobileEls : desktopEls;
+        
+        // Dark mode
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.replace('light', 'dark');
+            if (mobileEls.theme) mobileEls.theme.textContent = '☀️';
+        }
+        
+        // Event listeners
+        if (mobileEls.theme) {
+            mobileEls.theme.onclick = () => {
+                document.body.classList.toggle('dark');
+                localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+                mobileEls.theme.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+            };
+        }
+        
+        if (mobileEls.clear) {
+            mobileEls.clear.onclick = () => {
+                if (confirm('Hapus semua chat di layar kamu?')) {
+                    els.messages.innerHTML = '';
+                    chatCleared = true;
+                }
+            };
+        }
+        
+        els.input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+            els.send.classList.toggle('enabled', this.value.trim());
+        });
+        
+        // Socket
+        socket.on('connect', () => {
+            els.status.textContent = '🟢 Online';
+            if (desktopEls.users) document.getElementById('chatStatus').textContent = `🟢 ${username} online`;
+        });
+        
+        socket.on('userCount', (count) => {
+            const text = count + (count === 1 ? ' user' : ' users');
+            els.users.textContent = text;
+            if (desktopEls.users) desktopEls.users.textContent = text;
+        });
+        
+        socket.on('chatHistory', (history) => {
+            if (!chatCleared) {
+                els.messages.innerHTML = '';
+                history.forEach(msg => {
+                    if (msg.type === 'text') addMessage(msg.username, msg.message, msg.timestamp);
+                    if (msg.type === 'image') addImageMessage(msg.username, msg.image, msg.timestamp);
+                });
+            }
+        });
+        
+        socket.on('message', data => !chatCleared && addMessage(data.username, data.message, data.timestamp));
+        socket.on('imageMessage', data => !chatCleared && addImageMessage(data.username, data.image, data.timestamp));
+        
+        function sendMessage() {
+            const text = els.input.value.trim();
+            if (text && socket.connected) {
+                socket.emit('chatMessage', { username, message: text });
+                els.input.value = ''; els.input.style.height = 'auto';
+                els.send.classList.remove('enabled');
             }
         }
-        elements.imageInput.value = '';
-    };
-    
-    // Message functions
-    function addMessage(user, message, time) {
-        const div = document.createElement('div');
-        const hue = Math.floor(Math.random() * 360);
-        const avatar = user.charAt(0).toUpperCase();
-        const isMobileLayout = window.innerWidth <= 768;
         
-        if (isMobileLayout) {
-            div.className = 'mobile-message';
-            div.innerHTML = `
-                <div class="mobile-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
-                <div class="mobile-bubble">
-                    <div class="mobile-meta">
-                        <span class="mobile-username">${user}</span>
-                        <span class="mobile-timestamp">${time}</span>
+        els.send.onclick = sendMessage;
+        els.input.onkeypress = e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); sendMessage();
+            }
+        };
+        
+        els.image.onchange = async e => {
+            const file = e.target.files[0];
+            if (file?.type.startsWith('image/')) {
+                const formData = new FormData();
+                formData.append('image', file);
+                try {
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    socket.emit('imageMessage', { username, image: data.image });
+                } catch { alert('Gagal upload'); }
+            }
+            els.image.value = '';
+        };
+        
+        function addMessage(user, text, time) {
+            const div = document.createElement('div');
+            const hue = Math.random() * 360;
+            const avatar = user.charAt(0).toUpperCase();
+            
+            if (isMobile) {
+                div.className = 'mobile-msg';
+                div.innerHTML = `
+                    <div class="mobile-msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="mobile-msg-bubble">
+                        <div class="mobile-msg-header">
+                            <span class="mobile-msg-username">${user}</span>
+                            <span class="mobile-msg-time">${time}</span>
+                        </div>
+                        <div class="mobile-msg-text">${text}</div>
                     </div>
-                    <div class="mobile-text">${message}</div>
-                </div>
-            `;
-        } else {
-            div.className = 'message-row';
-            div.innerHTML = `
-                <div class="message-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
-                <div class="message-bubble">
-                    <div class="message-meta">
-                        <span class="username">${user}</span>
-                        <span class="timestamp">${time}</span>
+                `;
+            } else {
+                div.className = 'message';
+                div.innerHTML = `
+                    <div class="msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header">
+                            <span class="msg-username">${user}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <div class="msg-text">${text}</div>
                     </div>
-                    <div class="message-text">${message}</div>
-                </div>
-            `;
+                `;
+            }
+            els.messages.appendChild(div);
+            els.messages.scrollTop = els.messages.scrollHeight;
         }
         
-        elements.messages.appendChild(div);
-        elements.messages.scrollTop = elements.messages.scrollHeight;
-    }
-    
-    function addImageMessage(user, image, time) {
-        const div = document.createElement('div');
-        const hue = Math.floor(Math.random() * 360);
-        const avatar = user.charAt(0).toUpperCase();
-        const isMobileLayout = window.innerWidth <= 768;
+        function addImageMessage(user, image, time) {
+            const div = document.createElement('div');
+            const hue = Math.random() * 360;
+            const avatar = user.charAt(0).toUpperCase();
+            
+            if (isMobile) {
+                div.className = 'mobile-msg';
+                div.innerHTML = `
+                    <div class="mobile-msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="mobile-msg-bubble">
+                        <div class="mobile-msg-header">
+                            <span class="mobile-msg-username">${user}</span>
+                            <span class="mobile-msg-time">${time}</span>
+                        </div>
+                        <img src="${image}" class="mobile-msg-image">
+                    </div>
+                `;
+            } else {
+                div.className = 'message';
+                div.innerHTML = `
+                    <div class="msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header">
+                            <span class="msg-username">${user}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <img src="${image}" class="msg-image">
+                    </div>
+                `;
+            }
+            els.messages.appendChild(div);
+            els.messages.scrollTop = els.messages.scrollHeight;
+        }
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💬 Chat Anonim Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh; overflow: hidden;
+        }
+        body.light { background: #f0f2f5; color: #202124; }
+        body.dark { 
+            background: #0c1117; color: #e8eaed;
+            --sidebar: #171e28; --chat-bg: #151b22; --input-bg: #1e2530; --bubble: #2d3748;
+        }
+
+        /* DESKTOP (>768px) - Discord Style */
+        @media (min-width: 769px) {
+            .app-container { display: flex; height: 100vh; max-width: 1400px; margin: 0 auto; }
+            .sidebar {
+                width: 360px; background: #202124; border-right: 1px solid #373a40;
+                display: flex; flex-direction: column;
+            }
+            body.dark .sidebar { background: var(--sidebar); border-right-color: #2a3442; }
+            .sidebar-header {
+                padding: 24px 20px; border-bottom: 1px solid #373a40; display: flex; align-items: center; gap: 16px;
+            }
+            body.dark .sidebar-header { border-bottom-color: #2a3442; }
+            .sidebar-title { font-size: 22px; font-weight: 700; color: white; }
+            .stats-row { display: flex; gap: 12px; }
+            .stat-badge { 
+                background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 20px;
+                font-size: 14px; font-weight: 600; color: white;
+            }
+            .chat-list { flex: 1; overflow-y: auto; }
+            .chat-item {
+                padding: 18px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05);
+                display: flex; align-items: center; gap: 16px; transition: all 0.2s;
+            }
+            .chat-item:hover { background: rgba(255,255,255,0.08); }
+            .chat-avatar { 
+                width: 56px; height: 56px; border-radius: 50%; font-size: 22px; font-weight: 700;
+                display: flex; align-items: center; justify-content: center; color: white;
+            }
+            
+            .main-chat { flex: 1; display: flex; flex-direction: column; }
+            .chat-header {
+                padding: 24px 28px; border-bottom: 1px solid #dadce0; background: white;
+                display: flex; align-items: center; gap: 20px;
+            }
+            body.dark .chat-header { background: var(--input-bg); border-color: #303845; color: #e8eaed; }
+            .chat-user-avatar { width: 52px; height: 52px; font-size: 20px; }
+            .chat-info h2 { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+            .chat-status { font-size: 14px; opacity: 0.7; }
+            
+            .messages-area {
+                flex: 1; overflow-y: auto; padding: 32px 28px; background: #f8f9fa;
+            }
+            body.dark .messages-area { background: var(--chat-bg); }
+            .message { 
+                display: flex; gap: 16px; margin-bottom: 28px; max-width: 70%; animation: slideIn 0.3s ease;
+            }
+            @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; } }
+            .msg-avatar { 
+                width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; font-size: 18px; font-weight: 700;
+            }
+            .msg-bubble {
+                background: white; padding: 16px 20px; border-radius: 24px; flex: 1;
+                box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            }
+            body.dark .msg-bubble { background: var(--bubble); }
+            .msg-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 13px; }
+            .msg-username { font-weight: 600; font-size: 15px; }
+            body.dark .msg-username { color: #60a5fa; }
+            .msg-time { opacity: 0.7; }
+            .msg-text { font-size: 15.5px; line-height: 1.5; }
+            .msg-image { max-width: 100%; border-radius: 20px; margin-top: 12px; max-height: 340px; }
+            
+            .input-section {
+                padding: 24px 28px; border-top: 1px solid #dadce0; background: white; display: flex; gap: 16px; align-items: flex-end;
+            }
+            body.dark .input-section { background: var(--input-bg); border-color: #303845; }
+            #desktopInput {
+                flex: 1; min-height: 60px; max-height: 160px; padding: 18px 20px; border: 2px solid #e2e8f0;
+                border-radius: 32px; font-size: 16px; resize: none; font-family: inherit;
+            }
+            body.dark #desktopInput { background: #374151; border-color: #4b5563; color: #e8eaed; }
+            .btn-desktop {
+                width: 60px; height: 60px; border: none; border-radius: 50%; cursor: pointer; font-size: 22px;
+                display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            }
+            .btn-attach-desktop { background: #e5e7eb; color: #6b7280; }
+            body.dark .btn-attach-desktop { background: #4b5563; color: #d1d5db; }
+            .btn-send-desktop { background: #3b82f6; color: white; }
+            .btn-send-desktop:not(.enabled) { opacity: 0.6; }
+        }
+
+        /* MOBILE (≤768px) - WhatsApp Style */
+        @media (max-width: 768px) {
+            .app-container { display: none; }
+            .mobile-app {
+                height: 100vh; display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; width: 100%;
+            }
+            .mobile-header {
+                background: linear-gradient(135deg, #075e54 0%, #128c7e 100%); color: white; padding: 14px 18px;
+                position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center;
+                box-shadow: 0 4px 20px rgba(7,94,84,0.3);
+            }
+            .mobile-title { font-size: 19px; font-weight: 600; }
+            .mobile-stats { display: flex; align-items: center; gap: 14px; }
+            .user-badge {
+                background: rgba(255,255,255,0.25); padding: 8px 14px; border-radius: 20px; font-size: 15px; font-weight: 600;
+            }
+            .btn-mobile-round {
+                width: 46px; height: 46px; border: none; border-radius: 50%; background: rgba(255,255,255,0.2);
+                color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px;
+                transition: all 0.2s;
+            }
+            .btn-mobile-round:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
+            
+            .mobile-messages {
+                flex: 1; overflow-y: auto; padding: 16px 20px; padding-bottom: 130px; background: linear-gradient(to bottom, #efeae2 0%, #e5ddd5 100%);
+            }
+            body.dark .mobile-messages { background: linear-gradient(to bottom, #0f1a24 0%, #15212b 100%); }
+            .mobile-msg {
+                display: flex; gap: 16px; margin-bottom: 24px; max-width: 90%; animation: slideInMobile 0.3s ease;
+            }
+            @keyframes slideInMobile { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; } }
+            .mobile-msg-avatar {
+                width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; font-size: 20px; font-weight: 700;
+                display: flex; align-items: center; justify-content: center;
+            }
+            .mobile-msg-bubble {
+                background: rgba(255,255,255,0.95); padding: 14px 18px; border-radius: 22px; flex: 1;
+                backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            }
+            body.dark .mobile-msg-bubble { background: rgba(47,67,88,0.95); }
+            .mobile-msg-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13.5px; }
+            .mobile-msg-username { font-weight: 600; color: #075e54; font-size: 16px; }
+            body.dark .mobile-msg-username { color: #60a5fa; }
+            .mobile-msg-time { opacity: 0.8; font-size: 13px; }
+            .mobile-msg-text { font-size: 16px; line-height: 1.45; }
+            .mobile-msg-image { max-width: 100%; border-radius: 18px; margin-top: 10px; max-height: 320px; }
+            
+            .mobile-input-area {
+                position: fixed; bottom: 0; left: 0; right: 0; background: #f0f0f0; padding: 16px 20px;
+                display: flex; gap: 16px; box-shadow: 0 -6px 30px rgba(0,0,0,0.15); z-index: 50; max-width: 500px; margin: 0 auto;
+            }
+            body.dark .mobile-input-area { background: #1a2637; }
+            .mobile-input-row {
+                flex: 1; background: white; border-radius: 30px; padding: 14px 20px; display: flex; align-items: flex-end; gap: 16px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            body.dark .mobile-input-row { background: rgba(47,67,88,0.8); }
+            #mobileInput {
+                flex: 1; min-height: 52px; max-height: 140px; border: none; background: transparent;
+                font-size: 16px; resize: none; font-family: inherit; padding: 6px 0; color: inherit;
+            }
+            #mobileInput::placeholder { opacity: 0.6; }
+            .btn-mobile-send {
+                width: 52px; height: 52px; border: none; border-radius: 50%; background: #00a884; color: white;
+                font-size: 22px; cursor: pointer; flex-shrink: 0; opacity: 0.7; transition: all 0.2s;
+            }
+            .btn-mobile-send.enabled { opacity: 1; }
+            .btn-mobile-send.enabled:active { background: #00d498; transform: scale(0.95); }
+        }
+    </style>
+</head>
+<body class="light">
+    <!-- DESKTOP LAYOUT -->
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">💬 Chat Anonim Pro</div>
+                <div class="stats-row">
+                    <div class="stat-badge" id="desktopUsers">0</div>
+                    <div class="stat-badge" id="desktopStatus">🟢 Online</div>
+                </div>
+            </div>
+            <div class="chat-list">
+                <div class="chat-item">
+                    <div class="chat-avatar" style="background:hsl(200,70%,50%)">A</div>
+                    <div style="flex:1">
+                        <div style="font-size:16px;font-weight:600;margin-bottom:4px">Anon123</div>
+                        <div style="font-size:14px;opacity:0.7">Online</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="main-chat">
+            <div class="chat-header">
+                <div class="chat-user-avatar" style="background:hsl(220,70%,50%)">A</div>
+                <div style="flex:1">
+                    <div style="font-size:20px;font-weight:600">Chat Room Umum</div>
+                    <div class="chat-status" id="chatStatus">🟢 12 online</div>
+                </div>
+            </div>
+            <div class="messages-area" id="desktopMessages"></div>
+            <div class="input-section">
+                <input type="file" id="desktopImage" accept="image/*" style="display:none">
+                <button class="btn-desktop btn-attach-desktop" onclick="document.getElementById('desktopImage').click()" title="Foto">📎</button>
+                <textarea id="desktopInput" placeholder="Ketik pesan Anda..." rows="1"></textarea>
+                <button class="btn-desktop btn-send-desktop" id="desktopSend">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE LAYOUT -->
+    <div class="mobile-app">
+        <div class="mobile-header">
+            <div class="mobile-title">💬 Chat Anonim</div>
+            <div class="mobile-stats">
+                <div class="user-badge" id="mobileUsers">0</div>
+                <div id="mobileStatus">Menghubungkan...</div>
+                <button id="mobileTheme" class="btn-mobile-round" title="Tema">🌙</button>
+                <button id="mobileClear" class="btn-mobile-round" title="Hapus Chat">🗑️</button>
+            </div>
+        </div>
+        <div class="mobile-messages" id="mobileMessages"></div>
+        <div class="mobile-input-area">
+            <div class="mobile-input-row">
+                <input type="file" id="mobileImage" accept="image/*" style="display:none">
+                <button class="btn-mobile-round" onclick="document.getElementById('mobileImage').click()" title="Foto">📎</button>
+                <textarea id="mobileInput" placeholder="Ketik pesan..." rows="1"></textarea>
+                <button class="btn-mobile-send" id="mobileSend">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io({ path: '/socket.io/', transports: ['websocket', 'polling'] });
+        let username = 'Anon' + Math.floor(Math.random() * 1000);
+        let chatCleared = false;
+        let isMobile = window.innerWidth <= 768;
         
-        if (isMobileLayout) {
-            div.className = 'mobile-message';
-            div.innerHTML = `
-                <div class="mobile-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
-                <div class="mobile-bubble">
-                    <div class="mobile-meta">
-                        <span class="mobile-username">${user}</span>
-                        <span class="mobile-timestamp">${time}</span>
-                    </div>
-                    <img src="${image}" class="mobile-image">
-                </div>
-            `;
-        } else {
-            div.className = 'message-row';
-            div.innerHTML = `
-                <div class="message-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
-                <div class="message-bubble">
-                    <div class="message-meta">
-                        <span class="username">${user}</span>
-                        <span class="timestamp">${time}</span>
-                    </div>
-                    <img src="${image}" class="message-image">
-                </div>
-            `;
+        // Elements
+        const desktopEls = {
+            users: document.getElementById('desktopUsers'),
+            status: document.getElementById('desktopStatus'),
+            messages: document.getElementById('desktopMessages'),
+            input: document.getElementById('desktopInput'),
+            send: document.getElementById('desktopSend'),
+            image: document.getElementById('desktopImage')
+        };
+        const mobileEls = {
+            users: document.getElementById('mobileUsers'),
+            status: document.getElementById('mobileStatus'),
+            messages: document.getElementById('mobileMessages'),
+            input: document.getElementById('mobileInput'),
+            send: document.getElementById('mobileSend'),
+            theme: document.getElementById('mobileTheme'),
+            clear: document.getElementById('mobileClear'),
+            image: document.getElementById('mobileImage')
+        };
+        
+        const els = isMobile ? mobileEls : desktopEls;
+        
+        // Dark mode
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.replace('light', 'dark');
+            if (mobileEls.theme) mobileEls.theme.textContent = '☀️';
         }
         
-        elements.messages.appendChild(div);
-        elements.messages.scrollTop = elements.messages.scrollHeight;
-    }
-    
-    // Resize handler
-    window.addEventListener('resize', () => {
-        location.reload(); // Simple reload on layout change
-    });
-</script>
+        // Event listeners
+        if (mobileEls.theme) {
+            mobileEls.theme.onclick = () => {
+                document.body.classList.toggle('dark');
+                localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+                mobileEls.theme.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+            };
+        }
+        
+        if (mobileEls.clear) {
+            mobileEls.clear.onclick = () => {
+                if (confirm('Hapus semua chat di layar kamu?')) {
+                    els.messages.innerHTML = '';
+                    chatCleared = true;
+                }
+            };
+        }
+        
+        els.input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+            els.send.classList.toggle('enabled', this.value.trim());
+        });
+        
+        // Socket
+        socket.on('connect', () => {
+            els.status.textContent = '🟢 Online';
+            if (desktopEls.users) document.getElementById('chatStatus').textContent = `🟢 ${username} online`;
+        });
+        
+        socket.on('userCount', (count) => {
+            const text = count + (count === 1 ? ' user' : ' users');
+            els.users.textContent = text;
+            if (desktopEls.users) desktopEls.users.textContent = text;
+        });
+        
+        socket.on('chatHistory', (history) => {
+            if (!chatCleared) {
+                els.messages.innerHTML = '';
+                history.forEach(msg => {
+                    if (msg.type === 'text') addMessage(msg.username, msg.message, msg.timestamp);
+                    if (msg.type === 'image') addImageMessage(msg.username, msg.image, msg.timestamp);
+                });
+            }
+        });
+        
+        socket.on('message', data => !chatCleared && addMessage(data.username, data.message, data.timestamp));
+        socket.on('imageMessage', data => !chatCleared && addImageMessage(data.username, data.image, data.timestamp));
+        
+        function sendMessage() {
+            const text = els.input.value.trim();
+            if (text && socket.connected) {
+                socket.emit('chatMessage', { username, message: text });
+                els.input.value = ''; els.input.style.height = 'auto';
+                els.send.classList.remove('enabled');
+            }
+        }
+        
+        els.send.onclick = sendMessage;
+        els.input.onkeypress = e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); sendMessage();
+            }
+        };
+        
+        els.image.onchange = async e => {
+            const file = e.target.files[0];
+            if (file?.type.startsWith('image/')) {
+                const formData = new FormData();
+                formData.append('image', file);
+                try {
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    socket.emit('imageMessage', { username, image: data.image });
+                } catch { alert('Gagal upload'); }
+            }
+            els.image.value = '';
+        };
+        
+        function addMessage(user, text, time) {
+            const div = document.createElement('div');
+            const hue = Math.random() * 360;
+            const avatar = user.charAt(0).toUpperCase();
+            
+            if (isMobile) {
+                div.className = 'mobile-msg';
+                div.innerHTML = `
+                    <div class="mobile-msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="mobile-msg-bubble">
+                        <div class="mobile-msg-header">
+                            <span class="mobile-msg-username">${user}</span>
+                            <span class="mobile-msg-time">${time}</span>
+                        </div>
+                        <div class="mobile-msg-text">${text}</div>
+                    </div>
+                `;
+            } else {
+                div.className = 'message';
+                div.innerHTML = `
+                    <div class="msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header">
+                            <span class="msg-username">${user}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <div class="msg-text">${text}</div>
+                    </div>
+                `;
+            }
+            els.messages.appendChild(div);
+            els.messages.scrollTop = els.messages.scrollHeight;
+        }
+        
+        function addImageMessage(user, image, time) {
+            const div = document.createElement('div');
+            const hue = Math.random() * 360;
+            const avatar = user.charAt(0).toUpperCase();
+            
+            if (isMobile) {
+                div.className = 'mobile-msg';
+                div.innerHTML = `
+                    <div class="mobile-msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="mobile-msg-bubble">
+                        <div class="mobile-msg-header">
+                            <span class="mobile-msg-username">${user}</span>
+                            <span class="mobile-msg-time">${time}</span>
+                        </div>
+                        <img src="${image}" class="mobile-msg-image">
+                    </div>
+                `;
+            } else {
+                div.className = 'message';
+                div.innerHTML = `
+                    <div class="msg-avatar" style="background:hsl(${hue},70%,50%)">${avatar}</div>
+                    <div class="msg-bubble">
+                        <div class="msg-header">
+                            <span class="msg-username">${user}</span>
+                            <span class="msg-time">${time}</span>
+                        </div>
+                        <img src="${image}" class="msg-image">
+                    </div>
+                `;
+            }
+            els.messages.appendChild(div);
+            els.messages.scrollTop = els.messages.scrollHeight;
+        }
+    </script>
 </body>
 </html>
