@@ -5,8 +5,11 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+
+// Railway WebSocket config
 const io = socketIo(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
+    cors: { origin: "*", methods: ["GET", "POST"] },
+    path: '/socket.io/'
 });
 
 app.use(express.static(__dirname));
@@ -14,25 +17,24 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+const PORT = process.env.PORT || 3000;
 let userCount = 0;
 
 io.on('connection', (socket) => {
     userCount++;
-    console.log(`✅ User ${userCount} terhubung: ${socket.id}`);
-    io.emit('userCount', userCount); // Broadcast user count
+    console.log(`✅ User ${userCount}: ${socket.id}`);
+    io.emit('userCount', userCount);
     
     socket.on('chatMessage', (data) => {
-        console.log('💬', data.username, ':', data.message);
         io.emit('message', data);
     });
     
     socket.on('disconnect', () => {
         userCount = Math.max(0, userCount - 1);
-        console.log(`❌ User keluar. Total: ${userCount}`);
-        io.emit('userCount', userCount); // Update count
+        io.emit('userCount', userCount);
     });
 });
 
-server.listen(3000, () => {
-    console.log('🚀 Server: http://localhost:3000');
+server.listen(PORT, () => {
+    console.log(`🚀 Chat server: PORT ${PORT}`);
 });
